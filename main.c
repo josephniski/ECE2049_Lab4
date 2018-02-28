@@ -22,16 +22,23 @@ void DACInit(void);
 void DACSetValue(unsigned int dac_code);
 void stoptimerA2(int reset);
 void runtimerA2(void);
-void SMCLKsetup(void);
+void SMCLKsetup();
+
 
 //GLOBAL VARIABLES
 int state = 0;
 long unsigned int timer_cnt = 0;
 int once = 1;
 unsigned char pressed = 0xFF;
+int dc = 0;
+int square = 0;
+int sawtooth = 0;
+int triangle = 0;
+int setup = 0;
+int i = 0, k = 0, j = 0;
+unsigned int volts_code = 0;
 unsigned int potVal = 0;
-unsigned char potArray[5] = {' '};
-int j = 0;
+unsigned char potArray[5] = {' '};]
 
 int main(void)
 {
@@ -46,6 +53,7 @@ int main(void)
     configKeypad();
     configBoardButtons();
     SMCLKsetup();
+    TA2CCTL0 = CCIE; // TA2CCR0 interrupt enabled
 
     // *** Intro Screen ***
     Graphics_clearDisplay(&g_sContext); // Clear the display
@@ -58,6 +66,7 @@ int main(void)
 
             while(once == 1)
             {
+            setup = 1;
             runtimerA2();
 
             // Write some text to the display
@@ -97,7 +106,6 @@ int main(void)
             }
 
             else if(pressed == 0x04){
-
                 state = 4;
                 once = 1;
                 Graphics_clearDisplay(&g_sContext); // Clear the display
@@ -111,7 +119,9 @@ int main(void)
 
             while(once == 1)
             {
+            setup = 0;
             stoptimerA2(1);
+
             // Write some text to the display
             Graphics_drawStringCentered(&g_sContext, "DC", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
 
@@ -120,14 +130,14 @@ int main(void)
             once = 0;
             }
 
-            break;
+
 
         case 2:
 
 
             while(once == 1)
             {
-
+            setup = 0;
             stoptimerA2(1);
             // Write some text to the display
             Graphics_drawStringCentered(&g_sContext, "Square Wave", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
@@ -137,15 +147,18 @@ int main(void)
             once = 0;
             }
 
-            break;
+
 
         case 3:
 
 
             while(once == 1)
             {
-
+            setup = 0;
             stoptimerA2(1);
+            sawtooth = 1;
+            runtimerA2();
+
             // Write some text to the display
             Graphics_drawStringCentered(&g_sContext, "Sawtooth", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
 
@@ -154,14 +167,20 @@ int main(void)
             once = 0;
             }
 
-            break;
+            while(1){
+                DACSetValue(volts_code);
+            }
+
 
         case 4:
 
 
             while(once == 1)
             {
+            setup = 0;
             stoptimerA2(1);
+            triangle = 1;
+            runtimerA2();
 
             // Write some text to the display
             Graphics_drawStringCentered(&g_sContext, "Triangle", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
@@ -171,7 +190,24 @@ int main(void)
             once = 0;
             }
 
-            break;
+            while(1){
+                if (k < 4095)
+                {
+                    for (k = 0; k < 4095; k++)
+                    {
+                        DACSetValue(volts_code);
+                    }
+                }
+                else if (k >= 4095)
+                {
+                    for (k = 4095; k > 0; k--)
+                    {
+                        DACSetValue(4095 - volts_code);
+                    }
+                }
+            }
+
+
 
         }
 
@@ -180,34 +216,28 @@ int main(void)
 
 void runtimerA2(void)
 {
-// This function configures and starts Timer A2
-// Timer is counting ~0.01 seconds
+    if (setup == 1){
+        TA2CTL = TASSEL_1 + MC_1 + ID_0;
+        TA2CCR0 = 327; // 327+1 = 328 ACLK tics = ~0.01 seconds
+    }
+    else if (dc == 1){
+        //
+    }
+    else if (square == 1){
+        //
+    }
+    else if (sawtooth == 1){
+        TA2CTL = TASSEL_2 + MC_1 + ID_0;
+        TA2CCR0 = 10; // 10+1 = 11 SMCLK tics = 2.75x10^-6 seconds
+    }
+    else if (triangle == 1){
+        TA2CTL = TASSEL_2 + MC_1 + ID_0;
+        TA2CCR0 = 6; // 6+1 = 7 SMCLK tics = 1.75x10^-6 seconds
+    }
 
-// Use ACLK, 16 Bit, up mode, 1 divider
-    TA2CTL = TASSEL_1 + MC_1 + ID_0;
-    TA2CCR0 = 327; // 327+1 = 328 ACLK tics = ~0.01 seconds
     TA2CCTL0 = CCIE; // TA2CCR0 interrupt enabled
 }
 
-void SMCLKsetup(){
-    P5SEL |= (BIT3|BIT2);
-    UCSCTL6 &= ~(XT2OFF);
-    UCSCTL4 = 0x0054;
-}
-
-
-void runtimerSawtooth(void)
-{
-// This function configures and starts Timer A2
-// 1/85Hz = 0.01176 seconds
-// 0.01176/4095 (max count)
-// Timer is counting ~2.872944049x10^-6 seconds
-
-// Use ACLK, 16 Bit, up mode, 1 divider
-    TA2CTL = TASSEL_1 + MC_1 + ID_0;
-    TA2CCR0 = 10; // 10+1 = 1 SMCLK tics = 2.75x10^-6 seconds
-    TA2CCTL0 = CCIE; // TA2CCR0 interrupt enabled
-}
 
 void stoptimerA2(int reset)
 {
@@ -224,13 +254,23 @@ void stoptimerA2(int reset)
         timer_cnt = 0;
 }
 
+void SMCLKsetup(){
+    P5SEL |= (BIT3|BIT2);
+    UCSCTL6 &= ~(XT2OFF);
+    UCSCTL4 = 0x0054;
+}
+
 // Timer A2 interrupt service routine
 #pragma vector=TIMER2_A0_VECTOR
 __interrupt void TimerA2_ISR(void)
 {
+
     timer_cnt++;
 
     pressed = buttonStates(); //determine when the button is pressed
+
+    volts_code = timer_cnt % 4096; //0-4095
+
 }
 
 void configBoardButtons(){
@@ -361,6 +401,3 @@ void printPotVal(unsigned int gal)
         gal = gal / 10;
     }
 }
-
-
-
