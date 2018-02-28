@@ -38,7 +38,7 @@ int setup = 0;
 int i = 0, k = 0, j = 0;
 unsigned int volts_code = 0;
 unsigned int potVal = 0;
-unsigned char potArray[5] = {' '};]
+unsigned char potArray[5] = {' '};
 
 int main(void)
 {
@@ -224,7 +224,7 @@ void runtimerA2(void)
         //
     }
     else if (square == 1){
-        //
+
     }
     else if (sawtooth == 1){
         TA2CTL = TASSEL_2 + MC_1 + ID_0;
@@ -401,3 +401,5 @@ void printPotVal(unsigned int gal)
         gal = gal / 10;
     }
 }
+
+
