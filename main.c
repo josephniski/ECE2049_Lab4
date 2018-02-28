@@ -23,6 +23,7 @@ void DACSetValue(unsigned int dac_code);
 void stoptimerA2(int reset);
 void runtimerA2(void);
 void SMCLKsetup();
+unsigned int potValue(void);
 
 
 //GLOBAL VARIABLES
@@ -53,7 +54,6 @@ int main(void)
     configKeypad();
     configBoardButtons();
     SMCLKsetup();
-    TA2CCTL0 = CCIE; // TA2CCR0 interrupt enabled
 
     // *** Intro Screen ***
     Graphics_clearDisplay(&g_sContext); // Clear the display
@@ -132,13 +132,15 @@ int main(void)
 
 
 
+
         case 2:
 
 
             while(once == 1)
             {
             setup = 0;
-            stoptimerA2(1);
+            square = 1;
+            runtimerA2();
             // Write some text to the display
             Graphics_drawStringCentered(&g_sContext, "Square Wave", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
 
@@ -146,6 +148,10 @@ int main(void)
             Graphics_flushBuffer(&g_sContext);
             once = 0;
             }
+
+            DACSetValue(volts_code);
+
+           break;
 
 
 
@@ -224,6 +230,7 @@ void runtimerA2(void)
         //
     }
     else if (square == 1){
+        TA2CTL = TASSEL_1 + MC_1 + ID_0;
         //needs period of 7.1428 ms
         TA2CCR0 = 233; // 327+1 = 328 ACLK tics = ~7.14 ms
     }
@@ -275,10 +282,18 @@ __interrupt void TimerA2_ISR(void)
     }
     else if (square == 1)
     {
-        unsigned int amplitude = potValue();
+        //unsigned int amplitude = potValue();
         //when timer_cnt%2 = 0, send low
         //when timer_cnt%2 = 1, send high
         //amplitude multiplies the high and low values
+        if(timer_cnt % 2 == 0)
+        {
+            volts_code = 0;
+        }
+        else if(timer_cnt % 2 == 1)
+        {
+            volts_code = potValue();
+        }
     }
     else if (sawtooth == 1)
     {
