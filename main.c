@@ -224,7 +224,8 @@ void runtimerA2(void)
         //
     }
     else if (square == 1){
-
+        //needs period of 7.1428 ms
+        TA2CCR0 = 233; // 327+1 = 328 ACLK tics = ~7.14 ms
     }
     else if (sawtooth == 1){
         TA2CTL = TASSEL_2 + MC_1 + ID_0;
@@ -268,8 +269,26 @@ __interrupt void TimerA2_ISR(void)
     timer_cnt++;
 
     pressed = buttonStates(); //determine when the button is pressed
+    if (dc == 1)
+    {
+        //add in something about accessing the actual voltage
+    }
+    else if (square == 1)
+    {
+        unsigned int amplitude = potValue();
+        //when timer_cnt%2 = 0, send low
+        //when timer_cnt%2 = 1, send high
+        //amplitude multiplies the high and low values
+    }
+    else if (sawtooth == 1)
+    {
+        volts_code = timer_cnt % 4096; //0-4095
+    }
+    else if (triangle == 1)
+    {
 
-    volts_code = timer_cnt % 4096; //0-4095
+    }
+
 
 }
 
