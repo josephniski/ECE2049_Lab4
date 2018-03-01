@@ -131,33 +131,31 @@ int main(void)
             // Update display
             Graphics_flushBuffer(&g_sContext);
             once = 0;
-
-
             }
 
             if(pressed == 0x01){
-                state = 1;
+                state = 1; //DC state
                 once = 1;
                 Graphics_clearDisplay(&g_sContext); // Clear the display
 
             }
 
             else if(pressed == 0x10){
-                state = 2;
+                state = 2;//Square wave state
                 once = 1;
                 Graphics_clearDisplay(&g_sContext); // Clear the display
 
             }
 
             else if(pressed == 0x40){
-                state = 3;
+                state = 3;//saw tooth state
                 once = 1;
                 Graphics_clearDisplay(&g_sContext); // Clear the display
 
             }
 
             else if(pressed == 0x04){
-                state = 4;
+                state = 4;//triangle state
                 once = 1;
                 Graphics_clearDisplay(&g_sContext); // Clear the display
 
@@ -165,9 +163,7 @@ int main(void)
 
             break;
 
-        case 1:
-
-
+        case 1://DC STATE
             while(once == 1)
             {
             dc = 1;
@@ -187,9 +183,7 @@ int main(void)
             break;
 
 
-        case 2:
-
-
+        case 2://SQUARE WAVE STATE
             while(once == 1)
             {
             setup = 0;
@@ -209,7 +203,7 @@ int main(void)
 
 
 
-        case 3:
+        case 3://SAW TOOTH STATE
 
             while (once == 1)
             {
@@ -246,7 +240,7 @@ int main(void)
             }
 
 
-        case 4:
+        case 4://TRIANGLE STATE
 
             while (once == 1)
             {
@@ -370,7 +364,7 @@ __interrupt void TimerA2_ISR(void)
     pressed = buttonStates(); //determine when the button is pressed
     if (dc == 1)
     {
-        volts_code = potValue();
+        volts_code = potValue();//DC voltge is multiplied/modified by the pot value
     }
     else if (square == 1)
     {
@@ -508,14 +502,3 @@ unsigned int potValue(void)
     potVal = ADC12MEM0 & 0x0FFF;
     return potVal;
 }
-
-void printPotVal(unsigned int gal)
-{
-    for (j = 4; j >= 0; j--)
-    {
-        potArray[j] = ((gal % 10) + 0x30);
-        gal = gal / 10;
-    }
-}
-
-
