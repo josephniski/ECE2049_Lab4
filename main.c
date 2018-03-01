@@ -41,13 +41,11 @@ unsigned int volts_code = 0;
 unsigned int potVal = 0;
 unsigned char potArray[5] = {' '};
 unsigned int amplitude = 0;
-
+int flag = 0;
 
 int main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;    // Stop watchdog timer.
-
-    initLeds();
 
     _BIS_SR(GIE);
 
@@ -59,6 +57,57 @@ int main(void)
 
     // *** Intro Screen ***
     Graphics_clearDisplay(&g_sContext); // Clear the display
+
+    // *** Intro Screen ***
+    Graphics_clearDisplay(&g_sContext); // Clear the display
+
+    /*
+     * THE FOLLOWING IS FOR THE SAWTOOTH WAVE
+     */
+
+    //Define Volts per step
+    // (3.3V/50 steps) = 0.066
+    float volts = 0.066;
+    int step_code = 4095*(volts/3.3);
+
+    //Define max voltage
+    float max_volt = 3.3;
+    int max_code = 4095*(max_volt/3.3);
+
+    //Initialize DAC to 0V
+    int code = 0;
+    DACSetValue(code);
+
+    //Initialize current step
+    int current_step = 0;
+
+    /*
+     * END OF VARIABLES FOR SAWTOOTH WAVE
+     */
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*
+     * THE FOLLOWING IS FOR THE TRIANGLE WAVE
+     */
+    //Define Volts per step
+    // (3.3V/25 steps) = 0.132
+    float triangle_volts = 0.132;
+    int triangle_step_code = 4095*(triangle_volts/3.3);
+
+    //Define max voltage
+    float triangle_max_volt = 3.3;
+    int triangle_max_code = 4095*(triangle_max_volt/3.3);
+
+    //Initialize DAC to 0V
+    int triangle_code = 0;
+
+    //Initialize current step
+    int triangle_current_step = 0;
+
+    /*
+     * END OF VARIABLES FOR TRIANGLE WAVE
+     */
 
     while (1)
     {
@@ -162,64 +211,90 @@ int main(void)
 
         case 3:
 
-
-            while(once == 1)
+            while (once == 1)
             {
-            setup = 0;
-            stoptimerA2(1);
-            sawtooth = 1;
-            runtimerA2();
+                sawtooth = 1;
+                runtimerA2();
 
-            // Write some text to the display
-            Graphics_drawStringCentered(&g_sContext, "Sawtooth", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
+                // Write some text to the display
+                Graphics_drawStringCentered(&g_sContext, "Sawtooth",
+                                            AUTO_STRING_LENGTH, 48, 15,
+                                            TRANSPARENT_TEXT);
 
-            // Update display
-            Graphics_flushBuffer(&g_sContext);
-            once = 0;
+                // Update display
+                Graphics_flushBuffer(&g_sContext);
+                once = 0;
             }
 
-            while(1){
-                DACSetValue(volts_code);
+            while (1)
+            {
+                if (flag == 1) //if the interrupt is triggered
+                {
+                    flag = 0;
+                    if (current_step < 50)
+                    {
+                        code = code + step_code;
+                        current_step++;
+                    }
+                    else
+                    {
+                        code = max_code;
+                        current_step = 0;
+                    }
+                    DACSetValue(code); //only sets DAC when value changes
+                }
             }
 
 
         case 4:
 
-
-            while(once == 1)
+            while (once == 1)
             {
-            setup = 0;
-            stoptimerA2(1);
-            triangle = 1;
-            runtimerA2();
 
-            // Write some text to the display
-            Graphics_drawStringCentered(&g_sContext, "Triangle", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
+                triangle = 1;
+                runtimerA2();
 
-            // Update display
-            Graphics_flushBuffer(&g_sContext);
-            once = 0;
+                // Write some text to the display
+                Graphics_drawStringCentered(&g_sContext, "Triangle",
+                                            AUTO_STRING_LENGTH, 48, 15,
+                                            TRANSPARENT_TEXT);
+
+                // Update display
+                Graphics_flushBuffer(&g_sContext);
+                once = 0;
             }
 
-            while(1){
-                if (k < 4095)
+            while (1)
+            {
+                if (flag == 1) //if the interrupt is triggered
                 {
-                    for (k = 0; k < 4095; k++)
+                    flag = 0;
+                    if (triangle_current_step < 24)
                     {
-                        DACSetValue(volts_code);
+                        triangle_code = triangle_code + triangle_step_code;
+                        triangle_current_step++;
                     }
-                }
-                else if (k >= 4095)
-                {
-                    for (k = 4095; k > 0; k--)
+                    else if (triangle_current_step == 24
+                            || triangle_current_step == 25)
                     {
-                        DACSetValue(4095 - volts_code);
+                        triangle_code = triangle_max_code;
+                        triangle_current_step++;
                     }
+                    else if (triangle_current_step > 25
+                            && triangle_current_step <= 50)
+                    {
+                        triangle_code = triangle_code - triangle_step_code;
+                        triangle_current_step++;
+                    }
+                    else
+                    {
+                        triangle_code = 0;
+                        triangle_current_step = 0;
+                    }
+
+                    DACSetValue(triangle_code); //only sets DAC when value changes
                 }
             }
-
-
-
         }
 
     }
@@ -241,12 +316,22 @@ void runtimerA2(void)
         TA2CCR0 = 233; // 327+1 = 328 ACLK tics = ~7.14 ms
     }
     else if (sawtooth == 1){
+        //Period: 1/85 Hz = 0.0117647059 s
+        //Time per step (50 steps): 0.0117647059 s / 50 = 2.352941176x10^-4 s
+        //MAX_CNT: 940. 940+1 = 941. tINT = 2.3525x10^-4 seconds
+
+        //Set up to use SMCLK (4MHz, Up mode, CLK Divide 1)
         TA2CTL = TASSEL_2 + MC_1 + ID_0;
-        TA2CCR0 = 10; // 10+1 = 11 SMCLK tics = 2.75x10^-6 seconds
+        TA2CCR0 = 940; //MAX_CNT
     }
     else if (triangle == 1){
+        //Period: 1/70 Hz = 0.0142857143 s
+        //Time per step (50 steps): 0.0142857143 s / 50 = 2.857142857x10^-4 s
+        //MAX_CNT: 1142. 1142+1 = 1143. tINT = 2.8575x10^-4 seconds
+
+        //Set up to use SMCLK (4MHz, Up Mode, CLK Divide 1)
         TA2CTL = TASSEL_2 + MC_1 + ID_0;
-        TA2CCR0 = 6; // 6+1 = 7 SMCLK tics = 1.75x10^-6 seconds
+        TA2CCR0 = 1142; //MAX_CNT
     }
 
     TA2CCTL0 = CCIE; // TA2CCR0 interrupt enabled
@@ -280,6 +365,8 @@ __interrupt void TimerA2_ISR(void)
 {
     timer_cnt++;
 
+    flag = 1;
+
     pressed = buttonStates(); //determine when the button is pressed
     if (dc == 1)
     {
@@ -300,16 +387,6 @@ __interrupt void TimerA2_ISR(void)
             volts_code = potValue();
         }
     }
-    else if (sawtooth == 1)
-    {
-        volts_code = timer_cnt % 4096; //0-4095
-    }
-    else if (triangle == 1)
-    {
-
-    }
-
-
 }
 
 void configBoardButtons(){
