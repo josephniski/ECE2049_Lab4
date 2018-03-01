@@ -40,6 +40,8 @@ int i = 0, k = 0, j = 0;
 unsigned int volts_code = 0;
 unsigned int potVal = 0;
 unsigned char potArray[5] = {' '};
+unsigned int amplitude = 0;
+
 
 int main(void)
 {
@@ -119,8 +121,9 @@ int main(void)
 
             while(once == 1)
             {
+            dc = 1;
             setup = 0;
-            stoptimerA2(1);
+            runtimerA2();
 
             // Write some text to the display
             Graphics_drawStringCentered(&g_sContext, "DC", AUTO_STRING_LENGTH, 48, 15, TRANSPARENT_TEXT);
@@ -130,7 +133,9 @@ int main(void)
             once = 0;
             }
 
+            DACSetValue(volts_code);
 
+            break;
 
 
         case 2:
@@ -227,7 +232,8 @@ void runtimerA2(void)
         TA2CCR0 = 327; // 327+1 = 328 ACLK tics = ~0.01 seconds
     }
     else if (dc == 1){
-        //
+        TA2CTL = TASSEL_1 + MC_1 + ID_0;
+        TA2CCR0 = 327; // 327+1 = 328 ACLK tics = ~0.01 seconds
     }
     else if (square == 1){
         TA2CTL = TASSEL_1 + MC_1 + ID_0;
@@ -272,20 +278,19 @@ void SMCLKsetup(){
 #pragma vector=TIMER2_A0_VECTOR
 __interrupt void TimerA2_ISR(void)
 {
-
     timer_cnt++;
 
     pressed = buttonStates(); //determine when the button is pressed
     if (dc == 1)
     {
-        //add in something about accessing the actual voltage
+        volts_code = potValue();
     }
     else if (square == 1)
     {
-        //unsigned int amplitude = potValue();
-        //when timer_cnt%2 = 0, send low
-        //when timer_cnt%2 = 1, send high
-        //amplitude multiplies the high and low values
+    //unsigned int amplitude = potValue();
+    //when timer_cnt%2 = 0, send low
+    //when timer_cnt%2 = 1, send high
+    //amplitude multiplies the high and low values
         if(timer_cnt % 2 == 0)
         {
             volts_code = 0;
